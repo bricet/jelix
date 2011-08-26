@@ -82,10 +82,10 @@ class minifyHTMLResponsePlugin implements jIHTMLResponsePlugin {
 
         $excludeList = array();
         switch( $type ) {
-        case TYPE_JS:
+        case jMinifier::TYPE_JS:
             $excludeList = $this->excludeJS;
             break;
-        case TYPE_CSS:
+        case jMinifier::TYPE_CSS:
             $excludeList = $this->excludeCSS;
             break;
         }
@@ -129,10 +129,10 @@ class minifyHTMLResponsePlugin implements jIHTMLResponsePlugin {
 
         $addUniqueId = false;
         switch( $type ) {
-        case TYPE_JS:
+        case jMinifier::TYPE_JS:
             $addUniqueId = $gJConfig->jResponseHtml['jsUniqueUrlId'];
             break;
-        case TYPE_CSS:
+        case jMinifier::TYPE_CSS:
             $addUniqueId = $gJConfig->jResponseHtml['cssUniqueUrlId'];
             break;
         }

@@ -258,7 +258,8 @@ class Minify_CSS_UriRewriter {
         $uriPathShrinked = preg_replace( '/\/[^\/]*$/', '', $uri);
         $rootUrlSet = false;
         do {
-            if( ($rootUrl = jRootUrl::get( $uriPathShrinked )) != $GLOBALS['gJConfig']->urlengine['basePath'] ) {
+            if( jRootUrl::getRessourceValue($uriPathShrinked) !== null ) {
+                $rootUrl = jRootUrl::get($uriPathShrinked);
                 $uri = $rootUrl . substr( $uri, strlen($uriPathShrinked) );
                 $rootUrlSet = true;
                 break;
