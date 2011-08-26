@@ -43,16 +43,16 @@ class minifyHTMLResponsePlugin implements jIHTMLResponsePlugin {
                 $this->excludeCSS = explode( ',', $gJConfig->jResponseHtml['minifyExcludeCSS'] );
             }
 
-            $this->response->setCSSLinks($this->generateMinifyList($this->response->getCSSLinks(), 'excludeCSS'));
-            $this->response->setCSSIELinks($this->generateMinifyList($this->response->getCSSIELinks(), 'excludeCSS'));
+            $this->response->setCSSLinks($this->generateMinifyList($this->response->getCSSLinks(), jMinifier::TYPE_CSS));
+            $this->response->setCSSIELinks($this->generateMinifyList($this->response->getCSSIELinks(), jMinifier::TYPE_CSS));
         }
 
         if ($gJConfig->jResponseHtml['minifyJS']) {
             if($gJConfig->jResponseHtml['minifyExcludeJS'] ) {
                 $this->excludeJS = explode( ',', $gJConfig->jResponseHtml['minifyExcludeJS'] );
             }
-            $this->response->setJSLinks($this->generateMinifyList($this->response->getJSLinks(), 'excludeJS'));
-            $this->response->setJSIELinks($this->generateMinifyList($this->response->getJSIELinks(), 'excludeJS'));
+            $this->response->setJSLinks($this->generateMinifyList($this->response->getJSLinks(), jMinifier::TYPE_JS));
+            $this->response->setJSIELinks($this->generateMinifyList($this->response->getJSIELinks(), jMinifier::TYPE_JS));
         }
     }
 
@@ -71,18 +71,28 @@ class minifyHTMLResponsePlugin implements jIHTMLResponsePlugin {
     /**
      * generate a list of urls for minify. It combines urls if possible
      * @param array $list  key=url, values = attributes/parameters
-     * @param string $exclude  name of the property containing the list of excluded files
+     * @param string $type  jMinifier::TYPE_JS or jMinifier::TYPE_CSS
      * @return array list of urls to insert in the html page
      */
-    protected function generateMinifyList($list, $exclude) {
+    protected function generateMinifyList($list, $type) {
         global $gJConfig;
         $pendingList = array();
         $pendingParameters = false;
         $resultList = array();
 
+        $excludeList = array();
+        switch( $type ) {
+        case TYPE_JS:
+            $excludeList = $this->excludeJS;
+            break;
+        case TYPE_CSS:
+            $excludeList = $this->excludeCSS;
+            break;
+        }
+
         foreach ($list as $url=>$parameters) {
             $pathAbsolute = (strpos($url,'http://') !== false);
-            if( $pathAbsolute || in_array($url, $this->$exclude) ) {
+            if( $pathAbsolute || in_array($url, $excludeList) ) {
                 // for absolute or exculded url, we put directly in the result
                 // we won't try to minify it or combine it with an other file
                 $resultList[$url] = $parameters;
@@ -98,21 +108,61 @@ class minifyHTMLResponsePlugin implements jIHTMLResponsePlugin {
                 $pendingList[] = $url;
             }
             else {
-                $resultList[$this->generateMinifyUrl($pendingList)] = $pendingParameters;
+                foreach( $this->generateMinifyUrls($pendingList, $type) as $minifiedUrl ) {
+                    $resultList[$minifiedUrl] = $pendingParameters;
+                }
                 $pendingList = array($url);
                 $pendingParameters = $parameters;
             }
         }
         if ($pendingParameters !== false && count($pendingList)) {
-            $resultList[$this->generateMinifyUrl($pendingList)] = $pendingParameters;
+            foreach( $this->generateMinifyUrls($pendingList, $type) as $minifiedUrl ) {
+                $resultList[$minifiedUrl] = $pendingParameters;
+            }
         }
         return $resultList;
     }
 
-    protected function generateMinifyUrl($urlsList) {
+    protected function generateMinifyUrls($urlsList, $type) {
+
         global $gJConfig;
-        $url = $gJConfig->urlengine['basePath'].$gJConfig->jResponseHtml['minifyEntryPoint'].'?f=';
-        $url .= implode(',', $urlsList);
-        return $url;
+
+        $addUniqueId = false;
+        switch( $type ) {
+        case TYPE_JS:
+            $addUniqueId = $gJConfig->jResponseHtml['jsUniqueUrlId'];
+            break;
+        case TYPE_CSS:
+            $addUniqueId = $gJConfig->jResponseHtml['cssUniqueUrlId'];
+            break;
+        }
+
+        $urls = array();
+
+        if( $gJConfig->jResponseHtml['minifyUsingEntryPoint'] ) {
+            $url = $gJConfig->urlengine['basePath'].$gJConfig->jResponseHtml['minifyEntryPoint'].'?f=';
+            $url .= implode(',', $urlsList);
+            $urls[] = $url;
+        } else {
+            foreach (jMinifier::minify( $urlsList, $type ) as $minifiedPath=>$minifiedUrl ) {
+                //foreach() beacause jMinifier::minify() may return several pathes
+                $urlUniqueId = '';
+                if( $addUniqueId && file_exists(JELIX_APP_WWW_PATH . $minifiedPath) ) {
+                    $urlUniqueId = filemtime(JELIX_APP_WWW_PATH . $minifiedPath);
+                }
+                $url = $minifiedUrl;
+                if( $urlUniqueId != '' ) {
+                    if( strpos($url, '?') === false ) {
+                        $url .= '?';
+                    } else {
+                        $url .= '&';
+                    }
+                    $url .= $urlUniqueId;
+                }
+                $urls[] = $url;
+            }
+        }
+
+        return $urls;
     }
 }

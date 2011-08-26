@@ -49,6 +49,7 @@ class Minify_CSS_UriRewriter {
      */
     public static function rewrite($css, $currentDir, $docRoot = null, $symlinks = array()) 
     {
+        self::$_linkDocRoot = $docRoot ? $docRoot : $_SERVER['DOCUMENT_ROOT'];
         self::$_docRoot = self::_realpath(
             $docRoot ? $docRoot : $_SERVER['DOCUMENT_ROOT']
         );
@@ -119,6 +120,11 @@ class Minify_CSS_UriRewriter {
     private static $_docRoot = '';
     
     /**
+     * @var string DOC_ROOT
+     */
+    private static $_linkDocRoot = '';
+    
+    /**
      * @var array directory replacements to map symlink targets back to their
      * source (within the document root) E.g. '/var/www/symlink' => '/var/realpath'
      */
@@ -165,7 +171,7 @@ class Minify_CSS_UriRewriter {
             // URI is file-relative: rewrite depending on options
             $uri = (self::$_prependPath !== null)
                 ? (self::$_prependPath . $uri)
-                : self::rewriteRelative($uri, self::$_currentDir, self::$_docRoot, self::$_symlinks);
+                : self::rewriteRelative($uri, self::$_currentDir, self::$_docRoot, self::$_symlinks, self::$_linkDocRoot);
         }
         return $isImport
             ? "@import {$quoteChar}{$uri}{$quoteChar}"
@@ -210,8 +216,10 @@ class Minify_CSS_UriRewriter {
      * 
      * @return string
      */
-    public static function rewriteRelative($uri, $realCurrentDir, $realDocRoot, $symlinks = array())
+    public static function rewriteRelative($uri, $realCurrentDir, $realDocRoot, $symlinks = array(), $linkDocRoot=null)
     {
+        if( ! $linkDocRoot )
+            $linkDocRoot = $realDocRoot;
         // prepend path with current dir separator (OS-independent)
         $path = strtr($realCurrentDir, '/', DIRECTORY_SEPARATOR)  
             . DIRECTORY_SEPARATOR . strtr($uri, '/', DIRECTORY_SEPARATOR);
@@ -231,7 +239,7 @@ class Minify_CSS_UriRewriter {
             }
         }
         // strip doc root
-        $path = substr($path, strlen($realDocRoot));
+        $path = substr($path, strlen($linkDocRoot));
         
         self::$debugText .= "docroot stripped   : {$path}\n";
         
@@ -245,6 +253,25 @@ class Minify_CSS_UriRewriter {
         do {
             $uri = preg_replace('@/[^/]+/\\.\\./@', '/', $uri, 1, $changed);
         } while ($changed);
+
+        //replace the longest base path possible to its jRootUrl
+        $uriPathShrinked = preg_replace( '/\/[^\/]*$/', '', $uri);
+        $rootUrlSet = false;
+        do {
+            if( ($rootUrl = jRootUrl::get( $uriPathShrinked )) != $GLOBALS['gJConfig']->urlengine['basePath'] ) {
+                $uri = $rootUrl . substr( $uri, strlen($uriPathShrinked) );
+                $rootUrlSet = true;
+                break;
+            }
+            if( strpos( $uriPathShrinked, '/' ) === FALSE )
+                $uriPathShrinked = '';
+            else 
+                $uriPathShrinked = preg_replace( '/\/[^\/]*$/', '', $uriPathShrinked);
+        } while ( strlen($uriPathShrinked) > 0 );
+
+        if( ! $rootUrlSet ) {
+            $uri = 'http://' . $_SERVER['HTTP_HOST'] . $uri;
+        }
       
         self::$debugText .= "traversals removed : {$uri}\n\n";
         

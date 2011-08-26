@@ -115,6 +115,8 @@ sitemap = jResponseSitemap
 ; list of active plugins for jResponseHtml
 plugins =
 
+minifyUsingEntryPoint = on
+
 ; path to the minify entry point, relative to basepath
 minifyEntryPoint = minify.php
 ;concatenate and minify CSS and/or JS files :
@@ -430,4 +432,5 @@ cache_path=
 
 
 [rootUrls]
+jelix.cache=cache/
 
