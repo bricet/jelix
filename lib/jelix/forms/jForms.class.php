@@ -120,6 +120,55 @@ class jForms {
     }
 
     /**
+     * get an existing instance of a form, and clear all its data
+     *
+     * @param string $formSel the selector of the xml jform file
+     * @param string $formId  the id of the form (if you use multiple instance of a form)
+     */
+    static public function clear($formSel,$formId=null){
+        global $gJCoord;
+        if($formId === null)  $formId = self::DEFAULT_ID;
+        if(is_array($formId)) $formId = serialize($formId);
+        
+        // normalize the selector to avoid conflict in session
+        $sel = new jSelectorForm($formSel);
+        $formSel = $sel->toString();
+
+        if(isset($_SESSION['JFORMS'][$formSel][$formId])){
+            $_SESSION['JFORMS'][$formSel][$formId]->clear();
+        }
+
+        return self::get($formSel,$formId);
+    }
+
+    /**
+     * get the number of reference counts of a jForm
+     *
+     * @param string $formSel the selector of the xml jform file
+     * @param string $formId  the id of the form (if you use multiple instance of a form)
+     */
+    static public function getInstancesCount($formSel,$formId=null){
+        global $gJCoord;
+        if($formId === null)  $formId = self::DEFAULT_ID;
+        if(is_array($formId)) $formId = serialize($formId);
+        
+        // normalize the selector to avoid conflict in session
+        $sel = new jSelectorForm($formSel);
+        $formSel = $sel->toString();
+
+        if(isset($_SESSION['JFORMS'][$formSel][$formId])){
+            if( isset($_SESSION['JFORMS'][$formSel][$formId]->refcount) ) {
+                return $_SESSION['JFORMS'][$formSel][$formId]->refcount;
+            } else {
+                return 1;
+            }
+        } else {
+            return 0;
+        }
+    }
+
+
+    /**
      * destroy a form in the session
      *
      * use it after saving data of a form, and if you don't want to re-display the form.
@@ -146,6 +195,33 @@ class jForms {
             unset($_SESSION['JFORMS'][$formSel][$formId]);
         }
     }
+
+    /**
+     * destroy all instances of a form in the session
+     *
+     * @param string $formSel the selector of the xml jform file
+     * @param string $formId  the id of the form (if you use multiple instance of a form)
+     */
+    static public function destroyAllInstances($formSel='', $formId=null){
+        if(!isset($_SESSION['JFORMS'])) return;
+        if($formSel=='') {
+            foreach($_SESSION['JFORMS'] as $sel=>$f) {
+                self::destroyAllInstances($sel,$formId);
+            }
+        } else {
+            if($formId === null)  $formId = self::DEFAULT_ID;
+            if(is_array($formId)) $formId = serialize($formId);
+
+            // normalize the selector to avoid conflict in session
+            $sel = new jSelectorForm($formSel);
+            $formSel = $sel->toString();
+
+            if(isset($_SESSION['JFORMS'][$formSel][$formId])){
+                unset($_SESSION['JFORMS'][$formSel][$formId]);
+            }
+        }
+    }
+
 
     /**
      * destroy all form which are too old and unused
