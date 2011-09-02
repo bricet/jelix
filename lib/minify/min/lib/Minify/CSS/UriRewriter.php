@@ -239,7 +239,11 @@ class Minify_CSS_UriRewriter {
             }
         }
         // strip doc root
-        $path = substr($path, strlen($linkDocRoot));
+        $stripper = $linkDocRoot;
+        if( !isset($GLOBALS['gJConfig']) || $GLOBALS['gJConfig']->jResponseHtml['minifyUsingEntryPoint'] ) {
+            $stripper = $realDocRoot;
+        }
+        $path = substr($path, strlen($stripper));
         
         self::$debugText .= "docroot stripped   : {$path}\n";
         
@@ -258,8 +262,8 @@ class Minify_CSS_UriRewriter {
         $uriPathShrinked = preg_replace( '/\/[^\/]*$/', '', $uri);
         $rootUrlSet = false;
         do {
-            if( jRootUrl::getRessourceValue($uriPathShrinked) !== null ) {
-                $rootUrl = jRootUrl::get($uriPathShrinked);
+            if( jUrl::getRootUrlRessourceValue($uriPathShrinked) !== null ) {
+                $rootUrl = jUrl::getRootUrl($uriPathShrinked);
                 $uri = $rootUrl . substr( $uri, strlen($uriPathShrinked) );
                 $rootUrlSet = true;
                 break;
